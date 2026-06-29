@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx skills *)",
+      "Bash(cp D:/skills/project-portrait-skill/_facts-template.md __TRACKED_VAR__/.agents/skills/project-portrait/)",
+      "Bash(cp -r D:/skills/project-portrait-skill/references __TRACKED_VAR__/.agents/skills/project-portrait/)"
+    ]
+  }
+}
