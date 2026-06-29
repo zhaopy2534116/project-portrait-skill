@@ -1,594 +1,274 @@
 ---
 name: project-portrait
-description: |
-  Systematically analyze any codebase and produce 7 layered documents (00-06) covering business context, architecture, module breakdown, technical highlights, and optimization directions. Ideal for interview prep and developer onboarding.
-  对任意项目代码库进行系统化梳理，生成7份层次递进的文档（00~06），用于面试准备或新人上手。
-trigger_keywords:
-  - 梳理项目
-  - 面试准备
-  - 项目文档
-  - 整理架构
-  - 项目复盘
-  - review project
-  - interview prep
+description: Systematically analyze a software project and produce evidence-grounded project portrait documents for interview preparation, onboarding, architecture review, or knowledge transfer. Use for frontend apps, backend services, test frameworks, algorithms, SDKs/libraries, CLI tools, data pipelines, infrastructure projects, or mixed repositories when the user asks to understand, document, review, explain, or summarize a codebase.
 ---
 
-# Project Portrait — 项目画像
+# Project Portrait
 
-## Overview · 概述
+Analyze a codebase and produce a readable, evidence-grounded project portrait. The goal is not to fill a fixed template; the goal is to help a real reader understand what the project does, how it works, what matters, and where the risks or improvement opportunities are.
 
-Systematically analyze any codebase and produce 7 layered documents — from business context to architecture to optimization. Ideal for interview prep, developer onboarding, and project documentation.
+Default output directory: `docs_project_portrait/`, unless the user specifies another path.
 
-**Language** · 语言：产出的所有文档自动匹配当前对话中使用者所用的语言（中文对话→中文文档，英文对话→英文文档）。下文模板中的章节标题和占位符是中文的——当输出语言为英文时，将其翻译为英文。翻译规则：
+## Core Principles
 
-- 章节标题按语义翻译，如 `## 一、行业背景` → `## 1. Industry Background`，`### 1.1 业务流程` → `### 1.1 Business Workflow`
-- 占位符按语义翻译，如 `（一句话概括）` → `(one-sentence summary)`，`（谁、在什么情况下、遇到什么困难）` → `(who, in what situation, encountered what difficulty)`
-- 表格列名按语义翻译，如 `| 维度 | 说明 |` → `| Dimension | Description |`
-- 文档正文内容直接用匹配的语言撰写，无需翻译
+- Treat source code as the primary evidence. README, design docs, issues, and commit messages are supporting evidence.
+- Do not invent business context, architecture, performance claims, usage scale, or design motivation. Mark uncertain points as `待确认` / `To confirm`.
+- Adapt every document to the project type. Do not write API, database, deployment, async task, UI, algorithm, or testing sections when the project does not have that concern.
+- Prefer fewer high-quality sections over many shallow sections. If only three strong highlights exist, write three.
+- Keep reader value explicit: every section should answer "what is this, where is it, why does it matter, and what evidence supports it?"
+- Write in the user's conversation language. Translate headings and placeholders semantically when the user is using English.
 
-**Methodology** · 核心方法论：判断项目类型 → 建立心智模型 → 逐层探索代码 → 锁定事实基准 → 按固定结构展开各文档 → 交叉审查。
+## Companion Files
 
-**Companion file** · 配套文件：
+| File | When to use |
+|------|-------------|
+| `_facts-template.md` | Copy to the output directory as `_facts.md` before exploration, then fill it while reading the codebase. |
+| `references/project-types.md` | Read after Phase 0 to adapt exploration, facts, and document structure to the detected project type. |
 
-| 文件 | 位置 | 用途 |
-|------|------|------|
-| `README.md` / `README_zh.md` | 与本 skill 同目录 | 仓库说明 |
-| `_facts-template.md` | 与本 skill 同目录 | 探索记录 + 交叉审查清单的**空模板**。首次执行时复制到 `docs_project_portrait/_facts.md` 后填写 |
+## Phase 0: Clarify Scope
 
-> 输出目录默认 `docs_project_portrait/`，使用者可通过对话指定其他路径。
+Before writing documents, state assumptions and choose an execution mode.
 
----
+1. Identify the reader goal:
+   - `interview`: concise story, tradeoffs, highlights, likely follow-up questions.
+   - `onboarding`: architecture map, development entry points, module responsibilities, common workflows.
+   - `architecture-review`: design decisions, risks, boundaries, scalability, maintainability.
+   - `knowledge-transfer`: balanced project handbook with links, glossary, and operational context.
+2. Detect the project type:
+   - frontend app, backend service, full-stack app, test project, algorithm/ML project, SDK/library, CLI/tooling, data pipeline, infrastructure, monorepo, or mixed.
+3. Estimate scale using repository file inventory and source line counts:
+   - small: under 5K source lines
+   - medium: 5K-30K source lines
+   - large: over 30K source lines
+4. Read `references/project-types.md` and select only the relevant type guidance.
+5. If the project type or reader goal is genuinely unclear, ask the user. Otherwise proceed with the most likely interpretation and record it in `_facts.md`.
 
-## Phase 0 · 前置判断 — Classify the project
+## Phase 1: Create the Fact Ledger
 
-### 0.1 判断项目类型
+Create the output directory and copy `_facts-template.md` to `<output>/_facts.md`.
 
-先花 5 分钟判断项目的形态，再决定文档结构如何适配：
+Fill `_facts.md` continuously while exploring. Every important claim in the final documents should trace back to one of:
 
-| 项目类型 | 特征 | 文档适配 |
-|----------|------|----------|
-| 后端服务（API + DB + 异步） | 有路由、数据模型、后台任务 | 标准流程，全部适用 |
-| 前端 SPA / 移动端 | 组件树、状态管理、路由 | 01/02/05 保留；03 改为组件架构；04 改为组件/状态模块；06 改为交互/性能体验优化 |
-| CLI 工具 / 脚本集 | 命令行入口、参数解析 | 01/02/04/05 保留；03 精简为模块架构；无 API 设计章节 |
-| 库 / SDK | 公开 API、无入口文件 | 01/04/05 保留；02 改为 API 调用链路；03 改为模块设计；无部署章节 |
-| 数据管道 / ETL | DAG、Connector、Transform | 01/02/05 保留；03 改为管道拓扑；04 改为算子模块；06 改为数据质量/监控方向 |
+- `源码确认`: exact file, symbol, config, test, route, component, function, or script.
+- `文档确认`: README, docs, comments, issue text, or commit message.
+- `推断`: inferred from code structure or naming; explain the inference basis.
+- `待确认`: cannot be confirmed from available artifacts.
 
-如果项目的实际形态和上述都不同，**先向使用者确认**——"这个项目看起来是 XX 类型，文档结构我计划这样调整，可以吗？"
+Use `待确认` instead of guessing. A readable document with a few explicit unknowns is better than a polished but unreliable document.
 
-### 0.2 判断项目规模
+## Phase 2: Explore the Codebase
 
-用 `Glob` 和 `Bash wc -l` 快速统计，决定产出深度：
+Explore in this order, adapting details by project type:
 
-| 规模 | 源文件行数 | 建议深度 |
-|------|-----------|----------|
-| 小型 | < 5K 行 | 01 精简为 2 个核心场景；02 画 1-2 条主链路；04 模块合并为 8-10 个大模块 |
-| 中型 | 5K-30K 行 | 标准流程 |
-| 大型 | > 30K 行 | 只选最核心的模块展开（04 控制在 20 个以内）；次要模块合并为一节简述 |
+1. Repository map: top-level folders, package/workspace layout, generated/build/vendor folders to ignore.
+2. Entry points: app bootstraps, exported APIs, CLI commands, tests, training scripts, notebooks, pipelines, infrastructure roots.
+3. Configuration: environment variables, config files, feature flags, build settings, runtime parameters.
+4. Dependency surface: frameworks, major libraries, external systems, runtime platforms, toolchain.
+5. Core flows: user flows, request flows, command flows, test flows, algorithm/data flows, or package API flows.
+6. Domain model: business entities, UI state, data schemas, test fixtures, algorithm inputs/outputs, infrastructure resources.
+7. Cross-cutting behavior: error handling, logging, security, validation, caching, concurrency, accessibility, observability, reproducibility.
+8. Quality signals: tests, type checks, linting, CI, benchmarks, examples, docs, release/versioning.
 
----
+For each layer, record evidence in `_facts.md`. Include file paths and symbol names, not vague statements like "the service layer handles business logic."
 
-## Phase 1 · 建立心智模型 — Build a mental model
+## Phase 3: Lock the Baseline Document First
 
-### 1.1 从项目元信息入手
+Write `03-architecture-and-design.md` first. It is the single fact baseline for the other documents.
 
-按优先级阅读：CLAUDE.md → README.md → 项目根目录的 `.env.example` → git log（最近 20 条提交信息）。
+Required sections:
 
-要搞清楚：
-1. 这个项目是做什么的？一句话概括
-2. 服务什么行业/场景？有哪些领域术语？
-3. 技术栈：语言、框架、数据库、外部依赖
-4. 系统边界：和哪些外部系统交互？
-5. 架构模式：同步还是异步？单体还是微服务？有没有任务队列？
+```markdown
+# 03 - Architecture and Design
 
-### 1.2 元信息不足时的兜底策略
+> **Reader Guide**
+> This document explains the confirmed structure, boundaries, and design decisions of the project.
 
-如果项目没有 CLAUDE.md、README 质量差、或根本没有业务说明：
-- **从 API 路由反推业务**：列出所有 API 端点，按前缀分组，推测每组对应什么业务场景
-- **从数据模型反推领域**：列出所有数据表/集合，字段名往往透露领域信息
-- **从 git log 反推方向**：最近 20 条提交信息中反复出现的关键词，就是项目的核心关注点
-- **从外部依赖反推边界**：requirements.txt / package.json 中的第三方库名称暗示了系统能力边界
-- **如果以上方法仍推不出业务背景**：必须向使用者提问，不要硬编——"我需要了解这个项目的业务背景才能写好 01 文档，能简单介绍一下吗？"
+## 1. Project Snapshot
+| Dimension | Confirmed Finding | Evidence |
+|-----------|-------------------|----------|
 
-### 1.3 形成一句话总结
+## 2. Repository Map
+Describe the folder/module layout and what each important area owns.
 
-例如："这是一个面向XX行业的XX系统，核心能力是A、B、C，技术栈是X+Y+Z。"
+## 3. Runtime or Usage Model
+Adapt this section:
+- frontend: browser/app runtime, routing, rendering, state update path
+- backend: request lifecycle, workers, storage, external integrations
+- test project: test execution model, fixtures, mocking, reporting
+- algorithm: input data, preprocessing, algorithm stages, output/evaluation
+- SDK/library: public API surface, package boundaries, extension points
+- CLI/tooling: commands, arguments, config precedence, exit behavior
+- data/infrastructure: pipeline/resource topology, deployment/apply flow
 
----
+## 4. Core Flows
+Document the main flows with source-linked steps and diagrams where useful.
 
-## Phase 2 · 代码库探索 — Explore the codebase
+## 5. Key Modules
+Summarize responsibilities, important files, public interfaces, and dependencies.
 
-### 2.1 通用探索路径
+## 6. Data and State
+Adapt to the project: database tables, UI state, fixtures, schemas, artifacts, model weights, cache, files, queues, or infrastructure state.
 
-```
-1. 入口文件           → 启动流程、生命周期、初始化了哪些组件
-2. 配置模块           → 环境变量、外部凭据、可调参数和默认值（记录，03文档要用）
-3. 路由/API 层        → 全部对外接口，按前缀分组，识别哪2-4个是核心业务线
-4. 中间件/拦截器       → 认证、日志、限流、错误处理等横切逻辑
-5. 业务服务层          → 核心业务线背后的编排逻辑
-6. 数据模型层          → 全部实体、字段、索引、关系
-7. 数据访问层          → CRUD 模式、事务管理、特殊查询
-8. 核心处理引擎        → Pipeline/算法/规则引擎/工作流
-9. 外部集成层          → 第三方 API、消息队列、回调
-10. 辅助模块           → 并发控制、工具函数、序列化
-```
+## 7. External Boundaries
+Document external APIs, services, browser/device APIs, package consumers, CI systems, datasets, cloud resources, or none.
 
-### 2.2 如何识别核心业务线
+## 8. Design Decisions and Tradeoffs
+Only include decisions supported by code/docs. Mark inferred motivations clearly.
 
-不是所有端点都值得画成"核心业务线"。用以下信号判断：
-- 端点的参数最复杂、涉及的数据模型最多
-- 端点的处理链路最长（追下去经过的层级最多）
-- 端点的名称暗示了核心业务动作（如 create_strategy、generate_report）
-- git log 中相关文件的改动最频繁
-
-### 2.3 探索时的记录规范
-
-**首先**：复制模板 `_facts-template.md`（与本 skill 同目录） → `docs_project_portrait/_facts.md`。
-
-每读完一层，在 `docs_project_portrait/_facts.md` 中记录（打开文件，填入对应栏位）：
-- **项目基本信息**：(项目名、一句话概括、行业、类型、规模)
-- **技术栈**：(语言、框架、数据库、LLM平台等)
-- **关键数量**：(端点数量、表数量、服务类数量——为 03/04 准备，也为交叉审查做基准)
-- **核心业务线**：(哪些端点是主链路——为 02 准备)
-- **亮点素材**：(看到有意思的设计立即记录——为 05 准备)
-- **疑点标注**：(函数名和实际行为不符？执行顺序和直觉相反？——文档中需要特别说明)
-
----
-
-## Phase 3 · 锁定事实基准 — Lock down facts first (write 03)
-
-在产出任何面向"读者"的文档之前，**先把事实基准（03-架构设计文档）写出来**。因为 03 是其他文档的"单一事实来源"——数据库表清单、API 端点、配置参数、技术选型都在这里。先锁定这些，后续文档引用时才不会出现矛盾。
-
-**03 结构**（对着以下结构填充，每个 `-` 或占位符替换为实际内容）：
-
-```
-# 03 — 架构设计文档
-
-## 1. 项目概述
-| 维度 | 技术选型 |
-|------|----------|
-| 语言 | |
-| 框架 | |
-| 数据库 | |
-| ... | |
-
-## 2. 架构风格
-### 2.1 核心架构模式
-（ASCII 架构图 + 说明）
-
-### 2.2 为什么选择这种模式
-- 原因1
-- 原因2
-
-## 3. 部署架构
-（ASCII 拓扑图：应用进程 + 数据库 + 中间件 + 外部服务）
-
-## 4. 分层架构
-（ASCII 分层框图）
-
-### 4.1 核心桥接层
-（如果项目有特殊的桥接模块，此处展开）
-
-## 5. 数据库设计
-### 5.1 核心表关系
-（ASCII ER 图）
-
-### 5.2 完整表清单
-| 表名 | 用途 | 关键索引 |
-|------|------|----------|
-| | | |
-
-### 5.3 Schema 管理
--
-
-## 6. 任务调度器/异步机制设计
-### 6.1 状态机
-（ASCII 状态图：pending → running → success/fail）
-
-### 6.2 调度器核心逻辑
-（ASCII 流程图）
-
-### 6.3 容错机制
--
-
-## 7. API 设计
-### 7.1 Route 总览
-| 方法 | 路径 | 用途 |
-|------|------|------|
-| | | |
-
-### 7.2 请求/响应模式
-```json
-// 典型请求
-{}
-// 典型响应
-{}
+## 9. Risks and Unknowns
+List confirmed risks, weak evidence, missing docs, and questions for maintainers.
 ```
 
-### 7.3 关键枚举/常量映射表
-| 外部值 | 内部映射 | 说明 |
-|--------|----------|------|
-| | | |
+Rules:
 
-## 8. 核心处理 Pipeline 设计
-### 8.1 Pipeline 全景
-（ASCII 框图）
+- Remove or rename sections that do not apply.
+- Every table row that contains a count, name, path, config default, or dependency must have evidence.
+- If a section would be empty, replace it with a short "Not applicable" note and explain why, or remove it if the removal improves readability.
 
-### 8.2 阶段一：（名称）
-（4层结构 + 每层说明）
+## Phase 4: Produce the Document Set
 
-### 8.3 阶段二：（名称）
-（维度 + 分类 + 就绪度）
+After `03` is stable, produce the remaining documents. Keep the `00-06` numbering by default, but adapt titles and internal sections to the reader goal and project type.
 
-### 8.4 增量状态合并
-（JSON 结构 + 流程图）
+### `01-background-and-requirements.md`
 
-## 9. 外部输入处理链路
-（ASCII 流程图：输入 → 多层过滤 → 分流）
+Purpose: explain why the project exists and what problem it solves.
 
-## 10. 知识检索系统（如有）
-（Mining → Retrieval → Decay 生命周期）
+Include:
 
-## 11. 外部调用治理
-### 11.1 客户端封装
-### 11.2 并发控制
-| 调用场景 | 最大并发 | 最大 QPS | 重试次数 |
-|----------|----------|----------|----------|
-| | | | |
+- project positioning in one paragraph
+- target users or consumers
+- main use cases or workflows
+- requirements mapped to implemented capabilities
+- non-goals or boundaries when visible from code/docs
+- unknown business context if the repository does not provide it
 
-### 11.3 用量追踪
+Avoid technical jargon unless the project itself is technical infrastructure and the target reader expects it.
 
-## 12. 异常处理策略
-（ASCII 异常层级图）
+### `02-core-flows.md`
 
-## 13. 关键设计决策与权衡
-| 决策 | 选择 | 权衡 |
-|------|------|------|
-| | | |
+Purpose: explain how the project actually runs.
 
-## 14. 文件目录总览
-（ASCII 目录树）
+Include 1-4 core flows depending on project scale. Each flow should include:
 
-## 15. 关键接口速查
-### 接口A 完整生命周期
-（ASCII 流程图）
+- trigger/input
+- major steps with file or symbol evidence
+- state/data changes
+- branches, failure paths, or edge cases when important
+- final output/result
 
-### 接口B 完整生命周期
-（ASCII 流程图）
-```
+Use ASCII or Mermaid diagrams only when they clarify the flow. Do not add diagrams for decoration.
 
-**要求**：每个数字、每个表名、每个配置默认值都与源码一致。不确定的立即 Grep/Read 验证。
+### `04-module-breakdown.md`
 
----
+Purpose: help a developer locate responsibilities quickly.
 
-## Phases 4–9 · 按顺序产出其他文档 — Produce remaining docs
+Include:
 
-03 完成后，其他文档按以下顺序产出，每份引用 03 中的事实基准。
+- module index
+- key files or packages
+- responsibilities
+- important classes/functions/components/tests/commands/resources
+- dependencies between modules
+- "read this first" guidance for maintainers
 
-### Phase 4 · 产出 01 — Background & Requirements
+For large repositories, summarize secondary modules instead of exhaustively documenting every file.
 
-**Positioning** · 定位：业务视角，不涉及技术细节。Business perspective, no technical jargon.
+### `05-highlights-and-challenges.md`
 
-**01 结构**（对着以下结构填充）：
+Purpose: identify what is technically meaningful.
 
-```
-# 01 — 项目背景与需求
+Select only evidence-backed items. For each highlight:
 
-## 项目定位
-（一句话概括）
+- title
+- what the design does
+- why it matters
+- what would be worse without it
+- evidence links
 
-## 一、行业背景
-### 1.1 业务流程
-（行业典型客户旅程）
+For each challenge:
 
-### 1.2 核心痛点
-#### 痛点1：（一句话命名）
-（谁、在什么情况下、遇到什么困难）
+- problem
+- why it is hard in this project
+- current handling
+- remaining risk or tradeoff
 
-#### 痛点2：
-#### 痛点3：
-#### 痛点4：
+Do not force a fixed count. Small projects may have 2-3 strong items; larger systems may have more.
 
-## 二、核心业务场景
-### 场景 A：（一句话命名）
-**角色**：
-**场景**：
-**困惑**：（用第一人称问句，如"我该跟这个客户聊什么？"）
-**理想体验**：
-→ 解决方案：[链接]()
+### `00-executive-summary.md`
 
-### 场景 B：
-### 场景 C：
-### 场景 D：
+Purpose: give the fastest coherent overview. Write this after all detailed documents.
 
-## 三、需求拆解与解决方案映射
-### 需求1：（一句话命名）
-| 维度 | 说明 |
-|------|------|
-| 业务需求 | |
-| 具体产出 | |
-| 方案思路 |（产品语言，避免技术术语）|
-| 详细文档 | [链接]() |
+Include:
 
-### 需求2：
-### 需求3：
-### 需求4：
-### 需求5：
+- one-paragraph summary
+- project type and audience
+- the most important flows
+- the most important architecture facts
+- strongest highlights and risks
+- links to detailed documents
 
-## 四、核心设计原则
-### 4.1 （原则名称）
-（为什么这样做 + 体现在系统什么地方 + 技术文档链接）
+For interview mode, make it sound like a spoken explanation. For onboarding or review mode, make it more direct and navigable.
 
-### 4.2
-### 4.3
-### 4.4
-### 4.5
-```
+### `06-improvement-directions.md`
 
-**产品语言转换技巧**：想象在给不懂技术的产品经理解释。把"4层级联短路 Pipeline"说成"能用简单规则判断的就用规则，实在判断不了的才用AI"。
+Purpose: propose realistic next steps grounded in the current system.
 
----
+Include:
 
-### Phase 5 · 产出 02 — Core Flow Walkthrough
+- current state
+- limitation or risk
+- proposed improvement
+- expected value
+- cost/complexity
+- evidence from the codebase
 
-**Positioning** · 定位：端到端调用链，ASCII 流程图。End-to-end call chains with ASCII diagrams.
+Allow project-specific improvements:
 
-**02 结构**（对着以下结构填充）：
+- frontend: UX consistency, accessibility, render performance, state complexity, testability
+- backend: API boundaries, data consistency, resilience, observability, scalability
+- tests: coverage gaps, flakiness, fixture design, CI feedback time
+- algorithms: evaluation, reproducibility, complexity, data quality, benchmarking
+- SDK/library: API stability, examples, compatibility, release process
+- CLI/tooling: error messages, config model, composability, platform support
+- infrastructure/data: drift, rollback, monitoring, data quality, lineage
 
-```
-# 02 — 核心流程梳理
+Avoid generic advice like "add cache", "add tests", or "improve performance" unless tied to concrete evidence.
 
-## 一、整体架构
-（启动流程图 + 一句话说明）
+## Phase 5: Quality Bar
 
-## 二、核心业务线
-### 线路 A：（名称）
-（缩进式 ASCII 流程图，每步标注源文件路径）
-（如有分支/降级/异常路径，也要画出）
+Apply these rules to every delivered document:
 
-### 线路 B：（名称）
+- Start with a short reader guide: what this document answers and who should read it.
+- Prefer "conclusion -> evidence -> implication" paragraphs.
+- Use tables for comparison and inventories; use prose for explanation and tradeoffs.
+- Keep headings specific. Replace "Module 1" with the actual module name.
+- Link related documents and local source files where useful.
+- Maintain one vocabulary for the same concept across all documents.
+- Do not include empty placeholder headings.
+- Do not bury uncertainty. Put unknowns in a visible "Risks and Unknowns" or "To Confirm" section.
 
-## 三、核心处理 Pipeline
-（分段 ASCII 框图，展示数据在管线段之间的流转）
+## Phase 6: Cross-Review
 
-## 四、任务调度/异步处理机制
-（主循环步骤 + Handler 路由表 + 状态机）
+Before finishing, perform a cross-review using `<output>/_facts.md`.
 
-## 五、数据流转关系
-（核心数据实体之间的读写关系：谁写、谁读、谁缓存）
+Required checks:
 
-## 六、对外接口全景
-| 方法 | 路径 | 用途 |
-|------|------|------|
-| | | |
+1. Claim audit: extract all numeric claims, named entities, config defaults, API names, component names, command names, algorithm names, and external dependencies from the documents.
+2. Evidence audit: verify every audited item against source code or documentation.
+3. Consistency audit: ensure the same concept has the same name and count across all documents.
+4. Link audit: verify all cross-document links and source file references.
+5. Applicability audit: remove or rename sections that were inherited from a mismatched project type.
+6. Readability audit: remove filler, repeated explanations, and unsupported praise.
 
-## 七、代码分层结构
-（每层一句话职责 + 关键模块一句话说明）
+If a claim cannot be verified, either remove it, weaken it, or mark it as `待确认`.
 
-## 八、关键设计决策
-1.
-2.
-3.
-```
+## Phase 7: Finalize
 
-**要求**：流程顺序对着源码验证，不凭印象画。
+Deliver:
 
----
+- the generated document paths
+- a short summary of what was covered
+- any important unknowns or limitations
+- the verification performed
 
-### Phase 6 · 产出 04 — Module Breakdown
-
-**Positioning** · 定位：开发者视角，逐模块说明"在哪、干什么、有什么关键实现"。Where, what, and key implementation details per module.
-
-**04 结构**（对着以下结构填充）：
-
-```
-# 04 — 主要模块梳理
-
-## 模块全景索引
-（ASCII 目录树 + 编号）
-
-## 01. （模块名）
-**文件**：`src/xxx.py`
-**职责**：（一句话）
-| 核心类/函数 | 类型 | 职责 |
-|-------------|------|------|
-| | | |
-**关键实现细节**：
--
-
-### 01a. （子模块，如模块较大）
-
-## 02. （模块名）
-...
-
-（重复到最后一个模块）
-```
-
-**要求**：文件数、类数用 Glob 确认，不凭记忆。每个模块标注确切文件路径。
-
----
-
-### Phase 7 · 产出 05 — Highlights & Challenges
-
-**Positioning** · 定位：面试向。亮点展示设计能力，难点展示解决问题能力。Interview-oriented: highlights show design choices, challenges show problem-solving.
-
-**亮点选题标准**：能讲出"如果不这样做会怎样"，才是好亮点。用了连接池、加了日志这种常规操作不算亮点。
-
-选题方向（8-10 个，覆盖多领域）：架构决策类 / 业务价值类 / 工程实现类。
-
-难点选题方向（5-8 个）：缺乏 ground truth 的评估 / 外部依赖输出的随机性兜底 / 跨模块数据一致性 / 多调用并发编排 / 模型版本管理与兼容。
-
-**05 结构**（对着以下结构填充）：
-
-```
-# 05 — 技术亮点与难点
-
-## 亮点
-### 1. （一句话标题）
-**一句话**：（30 字总结）
-（核心流程 ASCII 简图）
-- 具体要点1
-- 具体要点2
-- 具体要点3
-**可引申**：（面试时可以往哪个方向展开）
-
-### 2.
-...
-
-## 难点
-### 1. （一句话标题）
-**问题**：（为什么难）
-**应对**：（怎么解决的）
-**面试可聊**：（如何跟面试官展开讨论）
-
-### 2.
-...
-```
-
----
-
-### Phase 8 · 产出 00 — Interview Summary
-
-**Positioning** · 定位：段落式浓缩总结，面向口头表达。在所有技术文档之后写。Paragraph-style summary for verbal delivery. Write after all other docs.
-
-**00 结构**（对着以下结构填充）：
-
-```
-# 00 — 项目面试总结
-
-## 一句话概述
-（30 秒电梯演讲，约 80 字）
-
-## 业务背景
-（段落，1-2 段。为什么需要这个系统）
-
-## 系统怎么运转
-（段落 + 简化 ASCII 流程图）
-
-## 两条核心业务线
-（段落，每条 3-5 句描述 + 链接到 02 详细流程）
-
-## 算法核心
-（段落，关键设计理念 + 链接到 03/04）
-
-## 几个值得展开的技术设计
-（每个 2-3 句 + 链接到 05）
-
-## 技术栈一览
-| 维度 | 选型 |
-|------|------|
-| | |
-
-## 架构全景
-（简化的 ASCII 流程图）
-
-## 核心数据表关系
-（段落，3 张最关键的表及其关系）
-
-## 难点与挑战
-（4 个典型难题 + 应对思路，每个 2-3 句）
-
-## 项目可改进方向
-（3-5 条，展示自知之明）
-
-## 面试追问预案
-- **"这个设计有什么缺点？"** →
-- **"如果并发量翻 10 倍，哪里最先崩？"** →
-- **"如果让你用另一种技术栈重写，你会怎么选？"** →
-- **"团队里有人不同意这个方案，你怎么说服？"** →
-```
-
-**格式要求**：以连贯段落为主，模拟面试口吻。每个概念 1-2 句解释 + 链接到详细文档。主动提可改进方向。
-
----
-
-### Phase 9 · 产出 06 — Optimization Directions
-
-**Positioning** · 定位：技术前瞻性。聚焦系统的智能化/架构演进方向。Forward-looking: AI agent evolution and architectural improvements.
-
-**约束**：不谈开发工具链（测试/CI/CD/框架升级），不谈常规性能优化（加缓存/改索引），只谈系统核心能力的设计演进。
-
-**06 结构**（对着以下结构填充）：
-
-```
-# 06 — 项目优化方向
-
-## 一、（方向名）
-### 现状
-（当前怎么做，链接到 03 对应章节）
-
-### 不足
-（为什么当前做法不够好）
-
-### 优化方案
-（具体怎么做 + 价值在哪）
-
-## 二、
-...
-
-## N、总结：优化路线图
-| 优先级 | 方向 | 核心变化 | 难度 | 价值 |
-|--------|------|----------|------|------|
-| P0 | | | 低 | 高 |
-| P1 | | | 中 | 高 |
-| P2 | | | 高 | 中 |
-| P3 | | | 中 | 中 |
-```
-
----
-
-## Phase 10 · 交叉审查 — Cross-review everything
-
-**这一步不能跳过。** 打开 `docs_project_portrait/_facts.md`，用底部的核查清单逐项核对并打勾。
-
-### 10.1 事实核查
-
-**必须逐条执行，不可跳过。**
-
-**第一步：提取所有数量声明。** 用 Grep 在 `docs_project_portrait/` 下搜索所有包含数字 + 量词的声明：
-```
-Grep pattern="\d+\s*(个|张|条|种|层|步|次|份|项|类|行|个方法|个文件|个端点|张表)"
-```
-把搜索结果（文档名 + 行号 + 原始文本）整理成清单——这就是你的核查对象。
-
-**第二步：逐一验证每个声明。** 对清单中的每一项，找到源码中对应的实体，用 Glob 或 Grep 统计实际数量：
-- "X 张表" → `Glob db/models/*.py` + 确认每个文件中有几个 Model 类
-- "X 个枚举类" → `Grep "class.*Enum"` 统计匹配行数
-- "X 个方法" → 如果是单个文件：`Grep "def " src/xxx.py -o | wc -l`；如果是一组文件：glob 后逐个 Grep 加总
-- "X 个端点" → `Grep "@router\.(get|post|put|delete|patch)"` 统计
-- "X 个服务" → `Glob services/*.py` + 确认每个文件中的类定义
-
-第三步：修正所有不一致的声明。文档中写 14，源码中实际是 5——修正文档。同时更新 `_facts.md` 中的对应数字。
-
-**附加规则**：
-- 不确定用哪个 Grep pattern 时，先用 `Glob` + `Read` 查看文件内容再决定
-- 如果某个数字无法精确验证（如方法数取决于是否计数 `__init__`），在文档中注明计数方式
-- 修改了 03（事实基准）的错误数字后，必须同步修正其他文档中引用该数字的地方
-
-### 10.2 表述核查
-- 标题编号与文件名是否一致
-- 同一概念在全文档中表述一致（如某过滤器到处都说是 N 层）
-- **跨文档链接完整性**：Grep 搜索 `](./0` 找出所有跨文档链接，逐一确认目标文件和锚点存在。修改了某文档的标题后，必须全局搜索更新所有指向它的链接
-
-### 10.3 内容完整性核查
-- 每条"核心业务线"是否覆盖了代码中实际支持的所有主场景（对照 `_facts.md` 中的"核心业务线"栏和 API 路由表）
-- 每个关键数据实体是否都在 03 的表清单中
-- 每个明显的外部依赖（config 中的 URL/凭据）是否在架构文档中提及
-
-### 10.4 亮点价值核查
-- 每个亮点能否讲出"如果不这样做会怎样"？讲不出来的降级或删除
-- 是否有遗漏？（回顾 `_facts.md` 中"亮点素材"栏）
-
-### 10.5 全局一致性核查
-- 关键数字（表数/模块数/端点数量）在全文档中统一，对照 `_facts.md` 中"关键数量"栏
-- 核心模块/类型/维度的名称拼写在全文档中统一
-
----
-
-## Phase 11 · 收尾 — Finalize
-
-1. 每份文档最前面加上 **本文档的完整章节目录**，格式为 `> **目录**` 引用块：
-   - 覆盖所有标题层级（h2/h3/h4），缩进体现层次
-   - 条目用锚点链接指向文中对应标题
-   - 00 的目录下方额外追加一行跨文档索引链接
-2. 确认文件命名符合 `NN-描述.md` 格式
-3. 把本次探索中"容易踩坑的点"记录到项目的 CLAUDE.md 或记忆系统
+Do not modify the source project except for the requested documentation output. If the user explicitly asks to store project-specific pitfalls in a repo guide, update the appropriate project guidance file separately.
